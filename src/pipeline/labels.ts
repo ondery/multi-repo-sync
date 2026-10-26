@@ -5,6 +5,7 @@ const ICONS: Record<OperationId, string> = {
   fetch: "cloud-download",
   pull: "arrow-down",
   stageAll: "add",
+  generateCommitMessage: "sparkle",
   commit: "check",
   push: "arrow-up",
   sync: "sync",
@@ -26,6 +27,7 @@ export function operationLabel(id: OperationId): string {
     fetch: vscode.l10n.t("Fetch"),
     pull: vscode.l10n.t("Pull"),
     stageAll: vscode.l10n.t("Stage All"),
+    generateCommitMessage: vscode.l10n.t("Generate Commit Message"),
     commit: vscode.l10n.t("Commit"),
     push: vscode.l10n.t("Push"),
     sync: vscode.l10n.t("Sync"),
@@ -55,14 +57,23 @@ export function operationDescription(id: OperationId): string | undefined {
   if (id === "sync") {
     return vscode.l10n.t("Pull, then push.");
   }
+  if (id === "generateCommitMessage") {
+    return vscode.l10n.t("Source Control");
+  }
   return undefined;
 }
 
 export function operationTooltip(id: OperationId): string {
   switch (id) {
+    case "stageAll":
+      return vscode.l10n.t("Stages every change without asking.");
+    case "generateCommitMessage":
+      return vscode.l10n.t(
+        "Runs Source Control's Generate Commit Message and waits until the message is ready.",
+      );
     case "commit":
       return vscode.l10n.t(
-        "Waits until the built-in commit message is confirmed.",
+        "Commits the staged changes with the message already prepared.",
       );
     case "sync":
       return vscode.l10n.t("Pull, then push.");

@@ -11,8 +11,15 @@ import { readRunSettings } from "./settings";
 import { RunSession } from "./session";
 import type { OperationId } from "./catalog";
 
+export interface RunProgress {
+  current: number;
+  total: number;
+  label: string;
+  operationId: string;
+}
+
 export interface RunSurface {
-  setRunning(running: boolean, message?: string): void;
+  setRunning(running: boolean, progress?: RunProgress): void;
 }
 
 export class PipelineRunner {
@@ -91,8 +98,38 @@ export class PipelineRunner {
           const linked = progressToken.onCancellationRequested(() =>
             this.cancellation?.cancel(),
           );
+          let reported = 0;
+          let index = 0;
+          const report = (
+            current: number,
+            name: string,
+            label: string,
+            operationId: string,
+          ) => {
+            const target =
+              steps.length === 0
+                ? 100
+                : Math.min(100, Math.round((current / steps.length) * 100));
+            const increment = Math.max(0, target - reported);
+            reported = target;
+            progress.report({
+              message: vscode.l10n.t(
+                "{0}/{1} · {2} · {3}",
+                current,
+                steps.length,
+                name,
+                label,
+              ),
+              increment,
+            });
+            this.surface.setRunning(true, {
+              current,
+              total: steps.length,
+              label: vscode.l10n.t("{0} · {1}", name, label),
+              operationId,
+            });
+          };
           try {
-            let index = 0;
             while (index < steps.length) {
               if (token.isCancellationRequested) {
                 stopped = true;
@@ -102,6 +139,12 @@ export class PipelineRunner {
               const step = steps[index];
               const key = normalizeKey(step.root);
               if (skippedRoots.has(key)) {
+                report(
+                  index + 1,
+                  this.model.label(step.root),
+                  operationLabel(step.operation),
+                  step.operation,
+                );
                 index += 1;
                 continue;
               }
@@ -116,24 +159,12 @@ export class PipelineRunner {
                   vscode.l10n.t("skipped"),
                   vscode.l10n.t("Repository is no longer open."),
                 );
+                report(index + 1, name, label, step.operation);
                 index += 1;
                 continue;
               }
 
-              progress.report({
-                message: vscode.l10n.t("{0}: {1}", name, label),
-                increment: 100 / steps.length,
-              });
-              this.surface.setRunning(
-                true,
-                vscode.l10n.t(
-                  "{0}: {1} ({2}/{3})",
-                  name,
-                  label,
-                  index + 1,
-                  steps.length,
-                ),
-              );
+              report(index + 1, name, label, step.operation);
               const outcome = await this.runStep(
                 step.operation,
                 repo,
@@ -163,6 +194,9 @@ export class PipelineRunner {
               index += 1;
             }
           } finally {
+            if (index >= steps.length) {
+              progress.report({ increment: Math.max(0, 100 - reported) });
+            }
             linked.dispose();
           }
         },

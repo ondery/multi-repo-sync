@@ -1,4 +1,4 @@
-export type RunOrder = 'perRepository' | 'perOperation';
+export type RunOrder = "perRepository" | "perOperation";
 
 export interface RunStep<T extends string = string> {
   root: string;
@@ -11,7 +11,7 @@ export function expandSteps<T extends string>(
   order: RunOrder,
 ): RunStep<T>[] {
   const steps: RunStep<T>[] = [];
-  if (order === 'perOperation') {
+  if (order === "perOperation") {
     for (const operation of operations) {
       for (const root of roots) {
         steps.push({ root, operation });
@@ -27,7 +27,10 @@ export function expandSteps<T extends string>(
   return steps;
 }
 
-export function mergeOrder(saved: readonly string[] | undefined, catalog: readonly string[]): string[] {
+export function mergeOrder(
+  saved: readonly string[] | undefined,
+  catalog: readonly string[],
+): string[] {
   const known = new Set(catalog);
   const next: string[] = [];
   for (const id of saved ?? []) {
@@ -43,7 +46,11 @@ export function mergeOrder(saved: readonly string[] | undefined, catalog: readon
   return next;
 }
 
-export function moveItem(order: readonly string[], id: string, direction: -1 | 1): string[] {
+export function moveItem(
+  order: readonly string[],
+  id: string,
+  direction: -1 | 1,
+): string[] {
   const index = order.indexOf(id);
   const target = index + direction;
   if (index < 0 || target < 0 || target >= order.length) {
@@ -60,7 +67,9 @@ export function reorderBefore(
   moving: readonly string[],
   before: string | undefined,
 ): string[] {
-  const movingIds = moving.filter((id, index) => order.includes(id) && moving.indexOf(id) === index);
+  const movingIds = moving.filter(
+    (id, index) => order.includes(id) && moving.indexOf(id) === index,
+  );
   if (movingIds.length === 0) {
     return [...order];
   }
@@ -68,7 +77,7 @@ export function reorderBefore(
     return [...order];
   }
   const movingSet = new Set(movingIds);
-  const rest = order.filter(id => !movingSet.has(id));
+  const rest = order.filter((id) => !movingSet.has(id));
   let index = before ? rest.indexOf(before) : rest.length;
   if (index < 0) {
     index = rest.length;
@@ -90,7 +99,20 @@ export function applyPreset(
   }
   const selectedSet = new Set(selected);
   return {
-    order: [...selected, ...order.filter(id => !selectedSet.has(id))],
+    order: [...selected, ...order.filter((id) => !selectedSet.has(id))],
     enabled: selected,
   };
+}
+
+export function placeGenerateCommitMessage(
+  saved: readonly string[] | undefined,
+  order: readonly string[],
+): string[] {
+  const id = "generateCommitMessage";
+  if ((saved ?? []).includes(id) || !order.includes("commit")) {
+    return [...order];
+  }
+  const next = order.filter((item) => item !== id);
+  next.splice(next.indexOf("commit"), 0, id);
+  return next;
 }

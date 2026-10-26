@@ -2,7 +2,7 @@
   "name": "multi-repo-sync",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "publisher": "ondery",
   "license": "MIT",
   "repository": {

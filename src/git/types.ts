@@ -81,6 +81,10 @@ export interface GitRepository {
   getBranch(name: string): Promise<GitBranch>;
   add(paths: string[]): Promise<void>;
   revert(paths: string[]): Promise<void>;
+  commit(
+    message: string,
+    options?: { all?: boolean | "tracked" },
+  ): Promise<void>;
   clean(paths: string[]): Promise<void>;
   checkout(treeish: string): Promise<void>;
   createBranch(name: string, checkout: boolean, ref?: string): Promise<void>;

@@ -187,17 +187,44 @@
     lastRows.forEach((row, index) => {
       const band = bands[index];
       for (const lane of row.through || []) {
-        graphSvg.appendChild(drawLine(x(lane), band.top - 1, x(lane), band.bottom + 1, color(lane)));
+        graphSvg.appendChild(
+          drawLine(
+            x(lane),
+            band.top - 1,
+            x(lane),
+            band.bottom + 1,
+            color(lane),
+          ),
+        );
       }
       if (row.fromAbove) {
-        graphSvg.appendChild(drawLine(x(row.lane), band.top - 1, x(row.lane), band.center, color(row.lane)));
+        graphSvg.appendChild(
+          drawLine(
+            x(row.lane),
+            band.top - 1,
+            x(row.lane),
+            band.center,
+            color(row.lane),
+          ),
+        );
       }
       for (const parent of row.parentLanes || []) {
-        graphSvg.appendChild(drawCurve(x(row.lane), band.center, x(parent), band.bottom + 1, color(parent)));
+        graphSvg.appendChild(
+          drawCurve(
+            x(row.lane),
+            band.center,
+            x(parent),
+            band.bottom + 1,
+            color(parent),
+          ),
+        );
       }
     });
     lastRows.forEach((row, index) => {
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      const circle = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "circle",
+      );
       circle.setAttribute("cx", String(x(row.lane)));
       circle.setAttribute("cy", String(bands[index].center));
       circle.setAttribute("r", "4");

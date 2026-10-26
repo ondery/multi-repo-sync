@@ -12,6 +12,7 @@ import { errorMessage } from "../util/error";
 import { repoLabel } from "../util/path";
 import type { OperationId } from "./catalog";
 import { interpretCommitResult } from "./commitResult";
+import { generateCommitMessage } from "../views/stageReview";
 import type { RunSession } from "./session";
 
 export interface StepOutcome {
@@ -49,6 +50,8 @@ export async function executeOperation(
         return publish(repo);
       case "stageAll":
         return stageAll(repo);
+      case "generateCommitMessage":
+        return generateMessage(repo, token);
       case "commit":
         return commit(repo);
       case "stash":
@@ -86,39 +89,119 @@ async function stageAll(repo: GitRepository): Promise<StepOutcome> {
     ...repo.state.untrackedChanges,
   ]);
   if (paths.length === 0) {
+    if (repo.state.indexChanges.length > 0) {
+      return { status: "ok", detail: vscode.l10n.t("Already staged.") };
+    }
     return { status: "skipped", detail: vscode.l10n.t("No changes to stage.") };
   }
   await repo.add(paths);
   return { status: "ok" };
 }
 
-async function commit(repo: GitRepository): Promise<StepOutcome> {
-  const before = repo.state.HEAD?.commit;
-  const hadMessage = repo.inputBox.value.length > 0;
-  const hadChanges = repositoryHasChanges(repo);
-  // null disables the built-in post-commit sync or push so the pipeline keeps the next step.
-  await vscode.commands.executeCommand("git.commit", repo.rootUri.fsPath, null);
-  await repo.status().catch(() => undefined);
-  const decision = interpretCommitResult({
-    before,
-    after: repo.state.HEAD?.commit,
-    hadChanges,
-  });
-  if (decision === "ok") {
+async function generateMessage(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
+  if (!repositoryHasChanges(repo)) {
     return {
-      status: "ok",
-      detail: hadMessage
-        ? vscode.l10n.t("Used the message from the Source Control input.")
-        : undefined,
+      status: "skipped",
+      detail: vscode.l10n.t("No changes to describe."),
     };
   }
-  if (decision === "skipped") {
+  const generated = await generateCommitMessage(repo);
+  if (token.isCancellationRequested) {
+    return { status: "cancelled", stopRun: true };
+  }
+  if (!generated) {
+    return {
+      status: "failed",
+      detail: vscode.l10n.t(
+        "Generate Commit Message is not available in this editor.",
+      ),
+    };
+  }
+  const ready = await waitForCommitMessage(repo, token);
+  if (token.isCancellationRequested) {
+    return { status: "cancelled", stopRun: true };
+  }
+  if (!ready) {
+    return {
+      status: "failed",
+      detail: vscode.l10n.t("Commit message was not generated."),
+    };
+  }
+  return {
+    status: "ok",
+    detail: vscode.l10n.t("Generated the commit message."),
+  };
+}
+
+function waitForCommitMessage(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<boolean> {
+  if (repo.inputBox.value.trim()) {
+    return Promise.resolve(true);
+  }
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (token.isCancellationRequested || repo.inputBox.value.trim()) {
+        clearInterval(timer);
+        resolve(repo.inputBox.value.trim().length > 0);
+        return;
+      }
+      if (Date.now() - started > 60000) {
+        clearInterval(timer);
+        resolve(false);
+      }
+    }, 300);
+  });
+}
+
+async function commit(repo: GitRepository): Promise<StepOutcome> {
+  const message = repo.inputBox.value.trim();
+  const staged = repo.state.indexChanges.length;
+  const pending =
+    staged +
+    repo.state.workingTreeChanges.length +
+    repo.state.untrackedChanges.length;
+  if (
+    pending === 0 &&
+    !repo.state.rebaseCommit &&
+    repo.state.mergeChanges.length === 0
+  ) {
     return {
       status: "skipped",
       detail: vscode.l10n.t("No changes to commit."),
     };
   }
-  return { status: "cancelled", needsChoice: true };
+  if (!message) {
+    return { status: "failed", detail: vscode.l10n.t("No commit message.") };
+  }
+  if (staged === 0) {
+    const untracked = uniquePaths(repo.state.untrackedChanges);
+    if (untracked.length > 0) {
+      await repo.add(untracked);
+    }
+  }
+  const before = repo.state.HEAD?.commit;
+  await repo.commit(message, staged === 0 ? { all: true } : {});
+  repo.inputBox.value = "";
+  await repo.status().catch(() => undefined);
+  if (
+    interpretCommitResult({
+      before,
+      after: repo.state.HEAD?.commit,
+      hadChanges: true,
+    }) !== "ok"
+  ) {
+    return {
+      status: "failed",
+      detail: vscode.l10n.t("Commit was not created."),
+    };
+  }
+  return { status: "ok" };
 }
 
 async function push(

@@ -1,7 +1,16 @@
-import * as vscode from 'vscode';
-import { OPERATION_IDS, isDestructive, isOperationId } from '../pipeline/catalog';
-import { operationDescription, operationIconName, operationLabel, operationTooltip } from '../pipeline/labels';
-import { applyPreset, mergeOrder } from '../pipeline/order';
+import * as vscode from "vscode";
+import {
+  OPERATION_IDS,
+  isDestructive,
+  isOperationId,
+} from "../pipeline/catalog";
+import {
+  operationDescription,
+  operationIconName,
+  operationLabel,
+  operationTooltip,
+} from "../pipeline/labels";
+import { applyPreset, mergeOrder } from "../pipeline/order";
 import {
   OPERATION_PRESETS,
   builtinPreset,
@@ -11,8 +20,9 @@ import {
   snapshotFrom,
   type PresetSnapshot,
   type UserPreset,
-} from '../pipeline/presets';
-import type { ExtensionState } from '../state/store';
+} from "../pipeline/presets";
+import type { RunProgress } from "../pipeline/runner";
+import type { ExtensionState } from "../state/store";
 
 interface ViewMessage {
   type?: string;
@@ -21,10 +31,12 @@ interface ViewMessage {
   order?: unknown;
 }
 
-export class OperationsView implements vscode.WebviewViewProvider, vscode.Disposable {
+export class OperationsView
+  implements vscode.WebviewViewProvider, vscode.Disposable
+{
   private view: vscode.WebviewView | undefined;
   private running = false;
-  private status: string | undefined;
+  private runProgress: RunProgress | undefined;
   private readonly disposables: vscode.Disposable[] = [];
 
   constructor(
@@ -32,9 +44,9 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
     private readonly store: ExtensionState,
   ) {}
 
-  setRunning(running: boolean, message?: string): void {
+  setRunning(running: boolean, progress?: RunProgress): void {
     this.running = running;
-    this.status = running ? message : undefined;
+    this.runProgress = running ? progress : undefined;
     this.postState();
   }
 
@@ -42,15 +54,19 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
     this.view = webviewView;
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')],
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "media")],
     };
     webviewView.webview.html = this.html(webviewView.webview);
-    this.disposables.push(webviewView.webview.onDidReceiveMessage(message => {
-      void this.onMessage(message as ViewMessage);
-    }));
-    this.disposables.push(webviewView.onDidDispose(() => {
-      this.view = undefined;
-    }));
+    this.disposables.push(
+      webviewView.webview.onDidReceiveMessage((message) => {
+        void this.onMessage(message as ViewMessage);
+      }),
+    );
+    this.disposables.push(
+      webviewView.onDidDispose(() => {
+        this.view = undefined;
+      }),
+    );
   }
 
   dispose(): void {
@@ -60,46 +76,53 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
   }
 
   private async onMessage(message: ViewMessage): Promise<void> {
-    if (message.type === 'ready') {
+    if (message.type === "ready") {
       this.postState();
       return;
     }
-    if (message.type === 'run') {
-      await vscode.commands.executeCommand(this.running ? 'multiRepoSync.stop' : 'multiRepoSync.start');
+    if (message.type === "run") {
+      await vscode.commands.executeCommand(
+        this.running ? "multiRepoSync.stop" : "multiRepoSync.start",
+      );
       return;
     }
     if (this.running) {
       return;
     }
-    if (message.type === 'toggle' && message.id && isOperationId(message.id) && typeof message.enabled === 'boolean') {
+    if (
+      message.type === "toggle" &&
+      message.id &&
+      isOperationId(message.id) &&
+      typeof message.enabled === "boolean"
+    ) {
       await this.store.setOperationEnabled(message.id, message.enabled);
       this.postState();
       return;
     }
-    if (message.type === 'reorder' && Array.isArray(message.order)) {
+    if (message.type === "reorder" && Array.isArray(message.order)) {
       const requested = message.order.filter(isOperationId);
       const order = mergeOrder(requested, OPERATION_IDS).filter(isOperationId);
       await this.store.setOperationOrder(order);
       this.postState();
       return;
     }
-    if (message.type === 'preset' && message.id) {
+    if (message.type === "preset" && message.id) {
       await this.applyNamedPreset(message.id);
       return;
     }
-    if (message.type === 'save') {
+    if (message.type === "save") {
       await this.savePreset();
       return;
     }
-    if (message.type === 'saveAs') {
+    if (message.type === "saveAs") {
       await this.savePresetAs();
       return;
     }
-    if (message.type === 'rename') {
+    if (message.type === "rename") {
       await this.renamePreset();
       return;
     }
-    if (message.type === 'delete') {
+    if (message.type === "delete") {
       await this.deletePreset();
     }
   }
@@ -110,7 +133,9 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
       return;
     }
     await this.store.setOperationOrder(snapshot.order.filter(isOperationId));
-    await this.store.setEnabledOperations(snapshot.enabled.filter(isOperationId));
+    await this.store.setEnabledOperations(
+      snapshot.enabled.filter(isOperationId),
+    );
     await this.store.setActivePreset(id, snapshot);
     this.postState();
   }
@@ -118,10 +143,13 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
   private snapshotFor(id: string): PresetSnapshot | undefined {
     const builtin = builtinPreset(id);
     if (builtin) {
-      const applied = applyPreset(this.store.operationOrder(), builtin.operations);
+      const applied = applyPreset(
+        this.store.operationOrder(),
+        builtin.operations,
+      );
       return snapshotFrom(applied.order, applied.enabled);
     }
-    const user = this.store.userPresets().find(preset => preset.id === id);
+    const user = this.store.userPresets().find((preset) => preset.id === id);
     if (!user) {
       return undefined;
     }
@@ -136,13 +164,17 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
       return;
     }
     const snapshot = this.currentSnapshot();
-    await this.store.saveUserPreset({ ...active, order: snapshot.order, enabled: snapshot.enabled });
+    await this.store.saveUserPreset({
+      ...active,
+      order: snapshot.order,
+      enabled: snapshot.enabled,
+    });
     await this.store.setActivePreset(active.id, snapshot);
     this.postState();
   }
 
   private async savePresetAs(): Promise<void> {
-    const name = await this.askName(vscode.l10n.t('Save preset'));
+    const name = await this.askName(vscode.l10n.t("Save preset"));
     if (!name) {
       return;
     }
@@ -163,7 +195,11 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
     if (!active) {
       return;
     }
-    const name = await this.askName(vscode.l10n.t('Rename preset'), active.name, active.id);
+    const name = await this.askName(
+      vscode.l10n.t("Rename preset"),
+      active.name,
+      active.id,
+    );
     if (!name) {
       return;
     }
@@ -176,9 +212,9 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
     if (!active) {
       return;
     }
-    const remove = vscode.l10n.t('Delete');
+    const remove = vscode.l10n.t("Delete");
     const choice = await vscode.window.showWarningMessage(
-      vscode.l10n.t('Delete preset {0}?', active.name),
+      vscode.l10n.t("Delete preset {0}?", active.name),
       { modal: true },
       remove,
     );
@@ -194,34 +230,48 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
     if (!id || builtinPreset(id)) {
       return undefined;
     }
-    return this.store.userPresets().find(preset => preset.id === id);
+    return this.store.userPresets().find((preset) => preset.id === id);
   }
 
   private currentSnapshot(): PresetSnapshot {
-    return snapshotFrom(this.store.operationOrder(), this.store.enabledOperations());
+    return snapshotFrom(
+      this.store.operationOrder(),
+      this.store.enabledOperations(),
+    );
   }
 
-  private async askName(title: string, value = '', exceptId?: string): Promise<string | undefined> {
+  private async askName(
+    title: string,
+    value = "",
+    exceptId?: string,
+  ): Promise<string | undefined> {
     const entered = await vscode.window.showInputBox({
       title,
       value,
       ignoreFocusOut: true,
-      prompt: vscode.l10n.t('Preset name'),
+      prompt: vscode.l10n.t("Preset name"),
     });
     if (entered === undefined) {
       return undefined;
     }
     const name = normalizePresetName(entered);
     if (!name) {
-      void vscode.window.showWarningMessage(vscode.l10n.t('Enter a preset name.'));
+      void vscode.window.showWarningMessage(
+        vscode.l10n.t("Enter a preset name."),
+      );
       return undefined;
     }
     const reserved = [
-      ...OPERATION_PRESETS.map(preset => ({ id: preset.id, name: presetLabel(preset.id) })),
+      ...OPERATION_PRESETS.map((preset) => ({
+        id: preset.id,
+        name: presetLabel(preset.id),
+      })),
       ...this.store.userPresets(),
     ];
     if (presetNameTaken(name, reserved, exceptId)) {
-      void vscode.window.showWarningMessage(vscode.l10n.t('A preset named {0} already exists.', name));
+      void vscode.window.showWarningMessage(
+        vscode.l10n.t("A preset named {0} already exists.", name),
+      );
       return undefined;
     }
     return name;
@@ -230,61 +280,75 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
   private postState(): void {
     const snapshot = this.currentSnapshot();
     const active = this.store.activePreset();
-    const activeKnown = active !== undefined && (builtinPreset(active.id) !== undefined || this.store.userPresets().some(preset => preset.id === active.id));
-    const dirty = Boolean(active && activeKnown && !sameSnapshot(snapshot, active));
-    const userActive = Boolean(active && activeKnown && !builtinPreset(active.id));
+    const activeKnown =
+      active !== undefined &&
+      (builtinPreset(active.id) !== undefined ||
+        this.store.userPresets().some((preset) => preset.id === active.id));
+    const dirty = Boolean(
+      active && activeKnown && !sameSnapshot(snapshot, active),
+    );
+    const userActive = Boolean(
+      active && activeKnown && !builtinPreset(active.id),
+    );
     const enabled = new Set(snapshot.enabled);
-    const items = snapshot.order.filter(isOperationId).map(id => ({
+    const items = snapshot.order.filter(isOperationId).map((id) => ({
       id,
       label: operationLabel(id),
-      description: operationDescription(id) ?? '',
+      description: operationDescription(id) ?? "",
       tooltip: operationTooltip(id),
       icon: operationIconName(id),
       destructive: isDestructive(id),
       enabled: enabled.has(id),
     }));
-    const builtins = OPERATION_PRESETS.map(preset => ({
+    const builtins = OPERATION_PRESETS.map((preset) => ({
       id: preset.id,
       name: presetLabel(preset.id),
       builtin: true,
     }));
-    const users = this.store.userPresets()
+    const users = this.store
+      .userPresets()
       .slice()
       .sort((left, right) => left.name.localeCompare(right.name))
-      .map(preset => ({ id: preset.id, name: preset.name, builtin: false }));
+      .map((preset) => ({ id: preset.id, name: preset.name, builtin: false }));
     void this.view?.webview.postMessage({
-      type: 'state',
+      type: "state",
       items,
       presets: [...builtins, ...users],
-      activePresetId: activeKnown ? active.id : '',
+      activePresetId: activeKnown ? active.id : "",
       dirty,
       canSave: dirty,
       canRename: Boolean(userActive),
       canDelete: Boolean(userActive),
       running: this.running,
-      hint: vscode.l10n.t('Checked steps run in order on the selected repositories. Sync is only one step.'),
-      status: this.status ?? '',
-      unsavedLabel: dirty ? vscode.l10n.t('Unsaved preset changes') : '',
+      progress: this.runProgress ?? null,
+      hint: vscode.l10n.t(
+        "Checked steps run in order on the selected repositories. Sync is only one step.",
+      ),
+      unsavedLabel: dirty ? vscode.l10n.t("Unsaved preset changes") : "",
       labels: {
-        presets: vscode.l10n.t('Preset'),
-        placeholder: vscode.l10n.t('Select a preset'),
-        builtin: vscode.l10n.t('Built-in'),
-        mine: vscode.l10n.t('My presets'),
-        save: vscode.l10n.t('Save'),
-        saveAs: vscode.l10n.t('Save As'),
-        rename: vscode.l10n.t('Rename'),
-        delete: vscode.l10n.t('Delete'),
-        start: vscode.l10n.t('Start'),
-        stop: vscode.l10n.t('Stop'),
-        drag: vscode.l10n.t('Drag to reorder'),
+        presets: vscode.l10n.t("Preset"),
+        placeholder: vscode.l10n.t("Select a preset"),
+        builtin: vscode.l10n.t("Built-in"),
+        mine: vscode.l10n.t("My presets"),
+        save: vscode.l10n.t("Save"),
+        saveAs: vscode.l10n.t("Save As"),
+        rename: vscode.l10n.t("Rename"),
+        delete: vscode.l10n.t("Delete"),
+        start: vscode.l10n.t("Start"),
+        stop: vscode.l10n.t("Stop"),
+        drag: vscode.l10n.t("Drag to reorder"),
       },
     });
   }
 
   private html(webview: vscode.Webview): string {
     const nonce = createNonce();
-    const script = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'operations.js'));
-    const style = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', 'operations.css'));
+    const script = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "operations.js"),
+    );
+    const style = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "media", "operations.css"),
+    );
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -310,7 +374,10 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
     </div>
     <div id="list" class="list"></div>
     <div class="footer">
-      <div id="status" class="status"></div>
+      <div id="progress-wrap" class="progress-wrap">
+        <div id="progress-label" class="progress-label"></div>
+        <progress id="run-progress" max="1" value="0"></progress>
+      </div>
       <button id="run" class="run" type="button"></button>
     </div>
   </div>
@@ -322,26 +389,30 @@ export class OperationsView implements vscode.WebviewViewProvider, vscode.Dispos
 
 function presetLabel(id: string): string {
   switch (id) {
-    case 'fetch':
-      return vscode.l10n.t('Fetch');
-    case 'pull':
-      return vscode.l10n.t('Pull');
-    case 'sync':
-      return vscode.l10n.t('Sync');
-    case 'stageCommitPush':
-      return vscode.l10n.t('Stage, commit, and push');
-    case 'commitPush':
-      return vscode.l10n.t('Commit and push');
-    case 'publish':
-      return vscode.l10n.t('Publish Branch');
-    case 'pullRequest':
-      return vscode.l10n.t('Pull request');
+    case "fetch":
+      return vscode.l10n.t("Fetch");
+    case "pull":
+      return vscode.l10n.t("Pull");
+    case "sync":
+      return vscode.l10n.t("Sync");
+    case "stageCommitPush":
+      return vscode.l10n.t("Stage, commit, and push");
+    case "commitPush":
+      return vscode.l10n.t("Commit and push");
+    case "publish":
+      return vscode.l10n.t("Publish Branch");
+    case "pullRequest":
+      return vscode.l10n.t("Pull request");
     default:
       return id;
   }
 }
 
 function createNonce(): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  return Array.from({ length: 24 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from(
+    { length: 24 },
+    () => alphabet[Math.floor(Math.random() * alphabet.length)],
+  ).join("");
 }

@@ -32,15 +32,15 @@ Drag a row by the handle on its left. **Start** is the full-width button under t
 
 Built-in presets:
 
-| Preset | Checked order |
-| --- | --- |
-| Fetch | Fetch |
-| Pull | Pull |
-| Sync | Fetch, Pull, Push |
-| Stage, commit, and push | Stage All, Commit, Push |
-| Commit and push | Commit, Push |
-| Publish Branch | Publish Branch |
-| Pull request | Push, Create Pull Request |
+| Preset                  | Checked order                                    |
+| ----------------------- | ------------------------------------------------ |
+| Fetch                   | Fetch                                            |
+| Pull                    | Pull                                             |
+| Sync                    | Fetch, Pull, Push                                |
+| Stage, commit, and push | Stage All, Generate Commit Message, Commit, Push |
+| Commit and push         | Generate Commit Message, Commit, Push            |
+| Publish Branch          | Publish Branch                                   |
+| Pull request            | Push, Create Pull Request                        |
 
 ### Timeline
 
@@ -78,41 +78,44 @@ The default order is per repository: `api` finishes Fetch, Pull, and Push, then 
 
 ## Step catalog
 
-| Step | What it does |
-| --- | --- |
-| Fetch | Downloads remote refs. |
-| Pull | Updates the current branch using the repository's own pull setting. |
-| Stage All | Stages working tree and untracked files. |
-| Commit | Opens VS Code's own commit input and waits until the message is confirmed. |
-| Push | Pushes the current branch to its upstream. |
-| Sync | Pulls, then pushes. This is one step, not the whole extension. |
-| Publish Branch | Pushes the branch and sets its upstream. |
-| Stash | Stashes changes, including untracked files. |
-| Pop Stash | Restores the latest stash. |
-| Checkout Branch | Checks out one branch name, asked once per run. |
-| Create Branch | Creates and checks out one branch name, asked once per run. |
-| Merge | Merges the chosen branch into the current one. A conflict fails the step. |
-| Rebase | Rebases onto the chosen branch. A conflict fails the step. |
-| Create Tag | Creates a tag with the name asked once per run. |
-| Create Pull Request | Pushes the branch and opens a pull request on github.com. |
-| Discard Changes | Discards uncommitted changes after confirmation. Unchecked by default. |
-| Force Push (With Lease) | Pushes with `--force-with-lease` after confirmation. Unchecked by default. |
+| Step                    | What it does                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| Fetch                   | Downloads remote refs.                                                                     |
+| Pull                    | Updates the current branch using the repository's own pull setting.                        |
+| Stage All               | Stages every change in the repository. No extra confirmation.                              |
+| Generate Commit Message | Runs Source Control's Generate Commit Message and waits until the message is in the input. |
+| Commit                  | Commits with the message already in the Source Control input. No commit dialog.            |
+| Push                    | Pushes the current branch to its upstream.                                                 |
+| Sync                    | Pulls, then pushes. This is one step, not the whole extension.                             |
+| Publish Branch          | Pushes the branch and sets its upstream.                                                   |
+| Stash                   | Stashes changes, including untracked files.                                                |
+| Pop Stash               | Restores the latest stash.                                                                 |
+| Checkout Branch         | Checks out one branch name, asked once per run.                                            |
+| Create Branch           | Creates and checks out one branch name, asked once per run.                                |
+| Merge                   | Merges the chosen branch into the current one. A conflict fails the step.                  |
+| Rebase                  | Rebases onto the chosen branch. A conflict fails the step.                                 |
+| Create Tag              | Creates a tag with the name asked once per run.                                            |
+| Create Pull Request     | Pushes the branch and opens a pull request on github.com.                                  |
+| Discard Changes         | Discards uncommitted changes after confirmation. Unchecked by default.                     |
+| Force Push (With Lease) | Pushes with `--force-with-lease` after confirmation. Unchecked by default.                 |
 
 Branch name, merge target, rebase target, tag name, and pull-request base are asked once per run and reused for every selected repository. The commit message is separate for each repository.
 
 A step is skipped, with a reason in the log, when a repository has nothing to do or does not have the requested branch. Destructive steps ask for confirmation in each repository.
 
-## The commit step waits
+## Staging and the commit message
 
-Commit is an ordinary step. The runner calls the built-in `git.commit` command for that repository. The second argument is `null`, so Source Control does not run its own post-commit push or sync. The next step stays the one in your list.
+**Stage All**, **Generate Commit Message**, and **Commit** run without extra dialogs. Start begins the selected steps and keeps going until they finish or a step fails.
 
-The command does not finish until the message is confirmed:
+While a run is in progress, the operations view shows a progress bar and the notification shows the same position: the current step, the total, the repository, and the step name. For example, `2/5 · api · Generate Commit Message`.
 
-- When `git.useEditorAsCommitInput` is on, the VS Code and Cursor default, the `COMMIT_EDITMSG` editor opens.
-- When it is off, the built-in quick input opens.
-- If that repository's Source Control box already contains a message, the built-in command uses it and the log says so.
+**Stage All** stages every working-tree and untracked change. Files that are already staged stay staged.
 
-If the command returns and HEAD did not change, and the repository had changes, the step was cancelled. You can **Stop**, **Skip Repository**, or **Retry**. If there is nothing to commit, the built-in Git dialog speaks and this extension does not open a second one.
+**Generate Commit Message** runs the editor's own action (`cursor.generateGitCommitMessage`, or Copilot's command when that is the one available) and waits until the Source Control input contains a message. It does not ask you to accept the message.
+
+**Commit** uses that message and calls the Git commit API directly. It does not open the commit editor, the quick input, or the post-commit sync prompt. When nothing is staged yet, the step includes the current changes. After a successful commit the input is cleared so the next repository does not reuse the same message.
+
+Discard Changes and Force Push (With Lease) still ask before they change a repository. Branch, merge, rebase, tag, and pull-request prompts are asked once per run because those steps need a value.
 
 ## Context menus
 
@@ -138,11 +141,11 @@ Issues, Actions, review comments, and Projects are not included.
 
 ## Settings
 
-| Setting | Default | Meaning |
-| --- | --- | --- |
-| `multiRepoSync.runOrder` | `perRepository` | `perRepository` finishes every step in one repository, then moves on. `perOperation` finishes one step in every repository, then moves on. |
-| `multiRepoSync.onError` | `stop` | `stop` ends the run. `skipRepository` skips the rest of that repository. `continue` moves to the next step. |
-| `multiRepoSync.timelineLimit` | `50` | Maximum commits in the timeline and the recent-commit list. The range is 10 to 500. |
+| Setting                       | Default         | Meaning                                                                                                                                    |
+| ----------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `multiRepoSync.runOrder`      | `perRepository` | `perRepository` finishes every step in one repository, then moves on. `perOperation` finishes one step in every repository, then moves on. |
+| `multiRepoSync.onError`       | `stop`          | `stop` ends the run. `skipRepository` skips the rest of that repository. `continue` moves to the next step.                                |
+| `multiRepoSync.timelineLimit` | `50`            | Maximum commits in the timeline and the recent-commit list. The range is 10 to 500.                                                        |
 
 Selected repositories, step order, checks, and the active preset are stored for the workspace. Presets you save are available in every workspace. A newly discovered repository starts unchecked. Destructive steps start unchecked.
 

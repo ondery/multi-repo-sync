@@ -1,4 +1,4 @@
-import type { OperationId } from './catalog';
+import type { OperationId } from "./catalog";
 
 export interface OperationPreset {
   id: string;
@@ -18,21 +18,24 @@ export interface UserPreset {
 }
 
 export const OPERATION_PRESETS: readonly OperationPreset[] = [
-  { id: 'fetch', operations: ['fetch'] },
-  { id: 'pull', operations: ['pull'] },
-  { id: 'sync', operations: ['fetch', 'pull', 'push'] },
-  { id: 'stageCommitPush', operations: ['stageAll', 'commit', 'push'] },
-  { id: 'commitPush', operations: ['commit', 'push'] },
-  { id: 'publish', operations: ['publishBranch'] },
-  { id: 'pullRequest', operations: ['push', 'createPullRequest'] },
+  { id: "fetch", operations: ["fetch"] },
+  { id: "pull", operations: ["pull"] },
+  { id: "sync", operations: ["fetch", "pull", "push"] },
+  {
+    id: "stageCommitPush",
+    operations: ["stageAll", "generateCommitMessage", "commit", "push"],
+  },
+  { id: "commitPush", operations: ["generateCommitMessage", "commit", "push"] },
+  { id: "publish", operations: ["publishBranch"] },
+  { id: "pullRequest", operations: ["push", "createPullRequest"] },
 ];
 
 export function builtinPreset(id: string): OperationPreset | undefined {
-  return OPERATION_PRESETS.find(preset => preset.id === id);
+  return OPERATION_PRESETS.find((preset) => preset.id === id);
 }
 
 export function normalizePresetName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ');
+  return name.trim().replace(/\s+/g, " ");
 }
 
 export function presetNameTaken(
@@ -44,23 +47,37 @@ export function presetNameTaken(
   if (!key) {
     return false;
   }
-  return presets.some(preset => preset.id !== exceptId && preset.name.toLocaleLowerCase() === key);
+  return presets.some(
+    (preset) =>
+      preset.id !== exceptId && preset.name.toLocaleLowerCase() === key,
+  );
 }
 
-export function snapshotFrom(order: readonly string[], enabled: readonly string[]): PresetSnapshot {
+export function snapshotFrom(
+  order: readonly string[],
+  enabled: readonly string[],
+): PresetSnapshot {
   const enabledSet = new Set(enabled);
   return {
     order: [...order],
-    enabled: order.filter(id => enabledSet.has(id)),
+    enabled: order.filter((id) => enabledSet.has(id)),
   };
 }
 
-export function sameSnapshot(left: PresetSnapshot, right: PresetSnapshot): boolean {
-  return sameList(left.order, right.order) && sameList(left.enabled, right.enabled);
+export function sameSnapshot(
+  left: PresetSnapshot,
+  right: PresetSnapshot,
+): boolean {
+  return (
+    sameList(left.order, right.order) && sameList(left.enabled, right.enabled)
+  );
 }
 
-export function upsertPreset(presets: readonly UserPreset[], preset: UserPreset): UserPreset[] {
-  const index = presets.findIndex(item => item.id === preset.id);
+export function upsertPreset(
+  presets: readonly UserPreset[],
+  preset: UserPreset,
+): UserPreset[] {
+  const index = presets.findIndex((item) => item.id === preset.id);
   if (index === -1) {
     return [...presets, preset];
   }
@@ -69,14 +86,26 @@ export function upsertPreset(presets: readonly UserPreset[], preset: UserPreset)
   return next;
 }
 
-export function removePreset(presets: readonly UserPreset[], id: string): UserPreset[] {
-  return presets.filter(preset => preset.id !== id);
+export function removePreset(
+  presets: readonly UserPreset[],
+  id: string,
+): UserPreset[] {
+  return presets.filter((preset) => preset.id !== id);
 }
 
-export function renamePreset(presets: readonly UserPreset[], id: string, name: string): UserPreset[] {
-  return presets.map(preset => preset.id === id ? { ...preset, name } : preset);
+export function renamePreset(
+  presets: readonly UserPreset[],
+  id: string,
+  name: string,
+): UserPreset[] {
+  return presets.map((preset) =>
+    preset.id === id ? { ...preset, name } : preset,
+  );
 }
 
 function sameList(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
