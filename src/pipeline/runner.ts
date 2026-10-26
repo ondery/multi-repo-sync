@@ -86,18 +86,30 @@ export class PipelineRunner {
         operations.length,
       ),
     );
+    this.output.appendLine(
+      vscode.l10n.t(
+        "Steps: {0}",
+        operations.map((id) => operationLabel(id)).join(" → "),
+      ),
+    );
 
     try {
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: "Multi Repo Sync",
+          title: vscode.l10n.t("Running"),
           cancellable: true,
         },
         async (progress, progressToken) => {
           const linked = progressToken.onCancellationRequested(() =>
             this.cancellation?.cancel(),
           );
+          progress.report({
+            message: vscode.l10n.t(
+              "Steps: {0}",
+              operations.map((id) => operationLabel(id)).join(" → "),
+            ),
+          });
           let reported = 0;
           let index = 0;
           const report = (

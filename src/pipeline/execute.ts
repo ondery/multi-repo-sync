@@ -1,10 +1,7 @@
 import * as vscode from "vscode";
 import { discardPaths } from "../git/actions";
-import {
-  FORCE_WITH_LEASE,
-  type GitCommit,
-  type GitRepository,
-} from "../git/types";
+import { gitExecutable, runGit } from "../git/run";
+import type { GitCommit, GitRepository } from "../git/types";
 import { detectDefaultBranch } from "../github/defaultBranch";
 import { createPullRequest } from "../github/pullRequests";
 import { githubRemote } from "../github/remote";
@@ -12,6 +9,17 @@ import { errorMessage } from "../util/error";
 import { repoLabel } from "../util/path";
 import type { OperationId } from "./catalog";
 import { interpretCommitResult } from "./commitResult";
+import {
+  commitArgs,
+  fetchArgs,
+  pullArgs,
+  pushArgs,
+  rebaseAbortArgs,
+  rebaseArgs,
+  stashArgs,
+  stashPopArgs,
+  syncArgs,
+} from "./gitArgs";
 import { generateCommitMessage } from "../views/stageReview";
 import type { RunSession } from "./session";
 
@@ -36,29 +44,25 @@ export async function executeOperation(
     await repo.status();
     switch (id) {
       case "fetch":
-        await repo.fetch();
-        return { status: "ok" };
+        return fetchRemote(repo, token);
       case "pull":
-        await repo.pull();
-        return { status: "ok" };
+        return pull(repo, token);
       case "push":
-        return push(repo, false);
+        return push(repo, token);
       case "sync":
-        await repo.pull();
-        return push(repo, false);
+        return sync(repo, token);
       case "publishBranch":
-        return publish(repo);
+        return publish(repo, token);
       case "stageAll":
         return stageAll(repo);
       case "generateCommitMessage":
         return generateMessage(repo, token);
       case "commit":
-        return commit(repo);
+        return commit(repo, token);
       case "stash":
-        return stash(repo);
+        return stash(repo, token);
       case "stashPop":
-        await repo.popStash();
-        return { status: "ok" };
+        return stashPop(repo, token);
       case "checkout":
         return checkout(repo, session, token, peers);
       case "createBranch":
@@ -74,13 +78,29 @@ export async function executeOperation(
       case "discardAll":
         return discardAll(repo);
       case "forcePushWithLease":
-        return forcePush(repo);
+        return forcePush(repo, token);
       default:
         return { status: "failed", detail: id };
     }
   } catch (error) {
+    if (token.isCancellationRequested) {
+      return {
+        status: "cancelled",
+        stopRun: true,
+        detail: vscode.l10n.t("Run cancelled."),
+      };
+    }
     return { status: "failed", detail: errorMessage(error) };
   }
+}
+
+async function git(
+  repo: GitRepository,
+  args: readonly string[],
+  token?: vscode.CancellationToken,
+): Promise<void> {
+  await runGit(repo.rootUri.fsPath, await gitExecutable(), args, token);
+  await repo.status();
 }
 
 async function stageAll(repo: GitRepository): Promise<StepOutcome> {
@@ -159,7 +179,10 @@ function waitForCommitMessage(
   });
 }
 
-async function commit(repo: GitRepository): Promise<StepOutcome> {
+async function commit(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
   const message = repo.inputBox.value.trim();
   const staged = repo.state.indexChanges.length;
   const pending =
@@ -180,15 +203,17 @@ async function commit(repo: GitRepository): Promise<StepOutcome> {
     return { status: "failed", detail: vscode.l10n.t("No commit message.") };
   }
   if (staged === 0) {
-    const untracked = uniquePaths(repo.state.untrackedChanges);
-    if (untracked.length > 0) {
-      await repo.add(untracked);
+    const paths = uniquePaths([
+      ...repo.state.workingTreeChanges,
+      ...repo.state.untrackedChanges,
+    ]);
+    if (paths.length > 0) {
+      await repo.add(paths);
     }
   }
   const before = repo.state.HEAD?.commit;
-  await repo.commit(message, staged === 0 ? { all: true } : {});
+  await git(repo, commitArgs(message), token);
   repo.inputBox.value = "";
-  await repo.status().catch(() => undefined);
   if (
     interpretCommitResult({
       before,
@@ -204,24 +229,83 @@ async function commit(repo: GitRepository): Promise<StepOutcome> {
   return { status: "ok" };
 }
 
-async function push(
+async function fetchRemote(
   repo: GitRepository,
-  setUpstream: boolean,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
+  const remote =
+    repo.state.HEAD?.upstream?.remote ?? repo.state.remotes[0]?.name;
+  await git(repo, fetchArgs(remote), token);
+  return { status: "ok" };
+}
+
+async function pull(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
 ): Promise<StepOutcome> {
   const head = repo.state.HEAD;
   if (!head?.name) {
     return { status: "skipped", detail: vscode.l10n.t("Detached HEAD.") };
   }
-  const remote = head.upstream?.remote;
-  if (remote && !setUpstream) {
-    await repo.push(remote, head.name, false);
-    return { status: "ok" };
+  if (!head.upstream) {
+    return {
+      status: "failed",
+      detail: vscode.l10n.t("The branch has no upstream."),
+    };
   }
-  await repo.push();
+  await git(repo, pullArgs(), token);
   return { status: "ok" };
 }
 
-async function publish(repo: GitRepository): Promise<StepOutcome> {
+async function push(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
+  const head = repo.state.HEAD;
+  if (!head?.name) {
+    return { status: "skipped", detail: vscode.l10n.t("Detached HEAD.") };
+  }
+  if (!head.upstream) {
+    return {
+      status: "failed",
+      detail: vscode.l10n.t("The branch has no upstream."),
+    };
+  }
+  await git(
+    repo,
+    pushArgs({ name: head.name, upstream: head.upstream }),
+    token,
+  );
+  return { status: "ok" };
+}
+
+async function sync(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
+  const head = repo.state.HEAD;
+  if (!head?.name) {
+    return { status: "skipped", detail: vscode.l10n.t("Detached HEAD.") };
+  }
+  if (!head.upstream) {
+    return {
+      status: "failed",
+      detail: vscode.l10n.t("The branch has no upstream."),
+    };
+  }
+  const [pullCommand, pushCommand] = syncArgs({
+    name: head.name,
+    upstream: head.upstream,
+  });
+  await git(repo, pullCommand, token);
+  await git(repo, pushCommand, token);
+  return { status: "ok" };
+}
+
+async function publish(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
   const head = repo.state.HEAD;
   if (!head?.name) {
     return { status: "skipped", detail: vscode.l10n.t("Detached HEAD.") };
@@ -233,15 +317,33 @@ async function publish(repo: GitRepository): Promise<StepOutcome> {
   if (!remote) {
     return { status: "failed", detail: vscode.l10n.t("No remote.") };
   }
-  await repo.push(remote, head.name, true);
+  await git(
+    repo,
+    pushArgs(
+      { name: head.name, upstream: head.upstream },
+      { remote, setUpstream: !head.upstream },
+    ),
+    token,
+  );
   return { status: "ok" };
 }
 
-async function stash(repo: GitRepository): Promise<StepOutcome> {
+async function stash(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
   if (!repositoryHasChanges(repo)) {
     return { status: "skipped", detail: vscode.l10n.t("No changes to stash.") };
   }
-  await repo.createStash({ includeUntracked: true });
+  await git(repo, stashArgs(), token);
+  return { status: "ok" };
+}
+
+async function stashPop(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
+  await git(repo, stashPopArgs(), token);
   return { status: "ok" };
 }
 
@@ -328,8 +430,9 @@ async function rebase(
     return cancelledInput(token);
   }
   try {
-    await repo.rebase(name);
+    await git(repo, rebaseArgs(name), token);
   } catch (error) {
+    await repo.status().catch(() => undefined);
     if (repo.state.rebaseCommit) {
       return {
         status: "failed",
@@ -425,7 +528,14 @@ async function openPullRequest(
       detail: vscode.l10n.t("GitHub sign-in was cancelled."),
     };
   }
-  await repo.push(parsed.remote, head.name, !head.upstream);
+  await git(
+    repo,
+    pushArgs(
+      { name: head.name, upstream: head.upstream },
+      { remote: parsed.remote, setUpstream: !head.upstream },
+    ),
+    token,
+  );
   const subjects = commits
     .map((item) => item.message.split(/\r?\n/, 1)[0]?.trim())
     .filter((line): line is string => Boolean(line));
@@ -472,7 +582,7 @@ async function discardAll(repo: GitRepository): Promise<StepOutcome> {
     return { status: "skipped", detail: vscode.l10n.t("Discard declined.") };
   }
   if (repo.state.rebaseCommit) {
-    await repo.rebaseAbort();
+    await git(repo, rebaseAbortArgs());
   }
   if (repo.state.mergeChanges.length > 0) {
     await repo.mergeAbort();
@@ -487,7 +597,10 @@ async function discardAll(repo: GitRepository): Promise<StepOutcome> {
   return { status: "ok" };
 }
 
-async function forcePush(repo: GitRepository): Promise<StepOutcome> {
+async function forcePush(
+  repo: GitRepository,
+  token: vscode.CancellationToken,
+): Promise<StepOutcome> {
   const head = repo.state.HEAD;
   if (!head?.name) {
     return { status: "skipped", detail: vscode.l10n.t("Detached HEAD.") };
@@ -509,7 +622,14 @@ async function forcePush(repo: GitRepository): Promise<StepOutcome> {
   if (!confirmed) {
     return { status: "skipped", detail: vscode.l10n.t("Force push declined.") };
   }
-  await repo.push(head.upstream.remote, head.name, false, FORCE_WITH_LEASE);
+  await git(
+    repo,
+    pushArgs(
+      { name: head.name, upstream: head.upstream },
+      { forceWithLease: true },
+    ),
+    token,
+  );
   return { status: "ok" };
 }
 

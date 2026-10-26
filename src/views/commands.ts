@@ -5,6 +5,8 @@ import {
   openChange,
   openExternal,
 } from "../git/actions";
+import { gitExecutable, runGit } from "../git/run";
+import { fetchArgs, pushArgs } from "../pipeline/gitArgs";
 import { detectDefaultBranch } from "../github/defaultBranch";
 import {
   branchNameOnGitHub,
@@ -256,7 +258,14 @@ async function publishBranch(
     void vscode.window.showErrorMessage(vscode.l10n.t("No remote."));
     return;
   }
-  await guard(() => repo.push(remote, node.name, true));
+  await guard(async () => {
+    await runGit(
+      repo.rootUri.fsPath,
+      await gitExecutable(),
+      pushArgs({ name: node.name }, { remote, setUpstream: true }),
+    );
+    await repo.status();
+  });
 }
 
 async function deleteBranch(
@@ -411,7 +420,12 @@ async function checkoutPullRequest(
     try {
       await repo.checkout(node.head);
     } catch {
-      await repo.fetch();
+      await runGit(
+        repo.rootUri.fsPath,
+        await gitExecutable(),
+        fetchArgs(githubRemote(repo.state.remotes)?.remote),
+      );
+      await repo.status();
       await repo.checkout(node.head);
     }
   });

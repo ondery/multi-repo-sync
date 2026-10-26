@@ -2,7 +2,7 @@
   "name": "multi-repo-sync",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "ondery",
   "license": "MIT",
   "repository": {
@@ -33,7 +33,7 @@
     "compile": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "check": "tsc --noEmit",
-    "test": "node --import tsx --test src/pipeline/order.test.ts src/pipeline/presets.test.ts src/pipeline/commitResult.test.ts src/history/graph.test.ts src/github/remote.test.ts"
+    "test": "node --import tsx --test src/pipeline/order.test.ts src/pipeline/presets.test.ts src/pipeline/commitResult.test.ts src/pipeline/gitArgs.test.ts src/history/graph.test.ts src/github/remote.test.ts"
   },
   "devDependencies": {
     "@types/node": "^20.17.6",

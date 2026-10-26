@@ -113,6 +113,7 @@ export interface GitRepository {
 export type GitApiState = "uninitialized" | "initialized";
 
 export interface GitApi {
+  readonly git: { readonly path: string };
   state: GitApiState;
   onDidChangeState: Event<GitApiState>;
   repositories: GitRepository[];

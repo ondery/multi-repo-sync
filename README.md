@@ -86,7 +86,7 @@ The default order is per repository: `api` finishes Fetch, Pull, and Push, then 
 | Generate Commit Message | Runs Source Control's Generate Commit Message and waits until the message is in the input. |
 | Commit                  | Commits with the message already in the Source Control input. No commit dialog.            |
 | Push                    | Pushes the current branch to its upstream.                                                 |
-| Sync                    | Pulls, then pushes. This is one step, not the whole extension.                             |
+| Sync                    | Pulls, then pushes. This is the only step that does both.                                  |
 | Publish Branch          | Pushes the branch and sets its upstream.                                                   |
 | Stash                   | Stashes changes, including untracked files.                                                |
 | Pop Stash               | Restores the latest stash.                                                                 |
