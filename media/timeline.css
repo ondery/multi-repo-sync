@@ -1,0 +1,111 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 12px;
+  font-weight: 600;
+  background: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.empty {
+  margin: 0;
+  padding: 16px 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.history {
+  display: flex;
+  align-items: stretch;
+}
+
+.graph {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.commits {
+  flex: 1;
+  min-width: 0;
+}
+
+.row {
+  display: block;
+  min-height: 56px;
+  padding: 12px 12px 12px 0;
+  cursor: pointer;
+}
+
+.row:hover,
+.row:focus {
+  background: var(--vscode-list-hoverBackground);
+  outline: none;
+}
+
+.meta {
+  min-width: 0;
+  padding: 0;
+}
+
+.subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.details {
+  margin-top: 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.9em;
+}
+
+.refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ref {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 999px;
+  padding: 0 6px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-badge-background);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.ref.head {
+  background: var(--vscode-gitDecoration-addedResourceForeground, #22c55e);
+  color: var(--vscode-editor-background);
+  border-color: transparent;
+}
+
+.ref.remote {
+  background: transparent;
+  color: var(--vscode-textLink-foreground);
+}
+
+.ref.tag {
+  background: transparent;
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, #eab308);
+}

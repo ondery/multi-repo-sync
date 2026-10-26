@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Multi Repo Sync">
+  <rect width="128" height="128" rx="28" fill="#0b1f33"/>
+  <rect x="10" y="10" width="108" height="108" rx="22" fill="#12304a"/>
+  <path fill="#e2e8f0" d="M36.5 50h7v28h-7z"/>
+  <path fill="#e2e8f0" d="M41.9 53.3 76.9 65.3 79.1 58.7 44.1 46.7z"/>
+  <path fill="#e2e8f0" d="M41.9 74.7 76.9 62.7 79.1 69.3 44.1 81.3z"/>
+  <circle cx="40" cy="40" r="14" fill="#7dd3fc"/>
+  <circle cx="40" cy="40" r="6" fill="#0b1f33"/>
+  <circle cx="40" cy="88" r="14" fill="#7dd3fc"/>
+  <circle cx="40" cy="88" r="6" fill="#0b1f33"/>
+  <circle cx="90" cy="64" r="14" fill="#86efac"/>
+  <circle cx="90" cy="64" r="6" fill="#0b1f33"/>
+</svg>

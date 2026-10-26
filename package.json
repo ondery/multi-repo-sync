@@ -1,0 +1,597 @@
+{
+  "name": "multi-repo-sync",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.2",
+  "publisher": "ondery",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ondery/multi-repo-sync"
+  },
+  "homepage": "https://github.com/ondery/multi-repo-sync#readme",
+  "bugs": {
+    "url": "https://github.com/ondery/multi-repo-sync/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onView:multiRepoSync.repositories",
+    "onView:multiRepoSync.operations",
+    "onView:multiRepoSync.timeline",
+    "onCommand:multiRepoSync.start"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test src/pipeline/order.test.ts src/pipeline/presets.test.ts src/pipeline/commitResult.test.ts src/history/graph.test.ts src/github/remote.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "@types/vscode": "1.85.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "multiRepoSync",
+          "title": "%viewContainer.title%",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "multiRepoSync": [
+        {
+          "id": "multiRepoSync.repositories",
+          "name": "%view.repositories%",
+          "contextualTitle": "%view.repositories%"
+        },
+        {
+          "id": "multiRepoSync.operations",
+          "name": "%view.operations%",
+          "contextualTitle": "%view.operations%",
+          "type": "webview"
+        },
+        {
+          "id": "multiRepoSync.timeline",
+          "name": "%view.timeline%",
+          "type": "webview"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "multiRepoSync.repositories",
+        "contents": "%welcome.gitDisabled%",
+        "when": "multiRepoSync.gitUnavailable"
+      },
+      {
+        "view": "multiRepoSync.repositories",
+        "contents": "%welcome.noRepositories%",
+        "when": "multiRepoSync.ready && multiRepoSync.noRepositories && !multiRepoSync.gitUnavailable"
+      }
+    ],
+    "commands": [
+      {
+        "command": "multiRepoSync.refreshRepositories",
+        "title": "%command.refresh%",
+        "icon": "$(refresh)",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.selectAllRepositories",
+        "title": "%command.selectAll%",
+        "icon": "$(check-all)",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.clearRepositorySelection",
+        "title": "%command.clearSelection%",
+        "icon": "$(close-all)",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.start",
+        "title": "%command.start%",
+        "icon": "$(play)",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.stop",
+        "title": "%command.stop%",
+        "icon": "$(debug-stop)",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.fetch",
+        "title": "%command.fetch%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.pull",
+        "title": "%command.pull%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.push",
+        "title": "%command.push%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.sync",
+        "title": "%command.sync%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.stageAll",
+        "title": "%command.stageAll%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.commit",
+        "title": "%command.commit%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openOnGitHub",
+        "title": "%command.openOnGitHub%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openCompareOnGitHub",
+        "title": "%command.openCompare%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.revealInExplorer",
+        "title": "%command.reveal%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openTerminal",
+        "title": "%command.terminal%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.copyPath",
+        "title": "%command.copyPath%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.checkoutBranch",
+        "title": "%command.checkout%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.mergeBranch",
+        "title": "%command.merge%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.publishBranch",
+        "title": "%command.publish%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.deleteBranch",
+        "title": "%command.deleteBranch%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.copyBranchName",
+        "title": "%command.copyBranch%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openBranchOnGitHub",
+        "title": "%command.openBranchOnGitHub%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openChange",
+        "title": "%command.openChange%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.stageChange",
+        "title": "%command.stageChange%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.unstageChange",
+        "title": "%command.unstageChange%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.discardChange",
+        "title": "%command.discardChange%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.copyCommitHash",
+        "title": "%command.copyHash%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.copyCommitMessage",
+        "title": "%command.copyMessage%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.checkoutCommit",
+        "title": "%command.checkoutCommit%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openCommitOnGitHub",
+        "title": "%command.openCommitOnGitHub%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.openPullRequest",
+        "title": "%command.openPullRequest%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.checkoutPullRequest",
+        "title": "%command.checkoutPullRequest%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.refreshPullRequests",
+        "title": "%command.refreshPullRequests%",
+        "category": "%command.category%"
+      },
+      {
+        "command": "multiRepoSync.signInGitHub",
+        "title": "%command.signIn%",
+        "category": "%command.category%"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "multiRepoSync.start",
+          "when": "!multiRepoSync.running"
+        },
+        {
+          "command": "multiRepoSync.stop",
+          "when": "multiRepoSync.running"
+        },
+        {
+          "command": "multiRepoSync.fetch",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.pull",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.push",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.sync",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.stageAll",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.commit",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openOnGitHub",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openCompareOnGitHub",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.revealInExplorer",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openTerminal",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.copyPath",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.checkoutBranch",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.mergeBranch",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.publishBranch",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.deleteBranch",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.copyBranchName",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openBranchOnGitHub",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openChange",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.stageChange",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.unstageChange",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.discardChange",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.copyCommitHash",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.copyCommitMessage",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.checkoutCommit",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openCommitOnGitHub",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.openPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.checkoutPullRequest",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.refreshPullRequests",
+          "when": "false"
+        },
+        {
+          "command": "multiRepoSync.signInGitHub",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "multiRepoSync.selectAllRepositories",
+          "when": "view == multiRepoSync.repositories",
+          "group": "navigation@1"
+        },
+        {
+          "command": "multiRepoSync.clearRepositorySelection",
+          "when": "view == multiRepoSync.repositories",
+          "group": "navigation@2"
+        },
+        {
+          "command": "multiRepoSync.refreshRepositories",
+          "when": "view == multiRepoSync.repositories",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "multiRepoSync.fetch",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "1_git@1"
+        },
+        {
+          "command": "multiRepoSync.pull",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "1_git@2"
+        },
+        {
+          "command": "multiRepoSync.push",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "1_git@3"
+        },
+        {
+          "command": "multiRepoSync.sync",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "1_git@4"
+        },
+        {
+          "command": "multiRepoSync.stageAll",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "1_git@5"
+        },
+        {
+          "command": "multiRepoSync.commit",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "1_git@6"
+        },
+        {
+          "command": "multiRepoSync.openOnGitHub",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/ && viewItem =~ /github/",
+          "group": "2_github@1"
+        },
+        {
+          "command": "multiRepoSync.openCompareOnGitHub",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/ && viewItem =~ /github/",
+          "group": "2_github@2"
+        },
+        {
+          "command": "multiRepoSync.revealInExplorer",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "3_nav@1"
+        },
+        {
+          "command": "multiRepoSync.openTerminal",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "3_nav@2"
+        },
+        {
+          "command": "multiRepoSync.copyPath",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^repo/",
+          "group": "3_nav@3"
+        },
+        {
+          "command": "multiRepoSync.checkoutBranch",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /branch/",
+          "group": "1_git@1"
+        },
+        {
+          "command": "multiRepoSync.mergeBranch",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /branch/",
+          "group": "1_git@2"
+        },
+        {
+          "command": "multiRepoSync.publishBranch",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^branch/",
+          "group": "1_git@3"
+        },
+        {
+          "command": "multiRepoSync.deleteBranch",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^branch/",
+          "group": "1_git@4"
+        },
+        {
+          "command": "multiRepoSync.copyBranchName",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /branch/",
+          "group": "3_nav@1"
+        },
+        {
+          "command": "multiRepoSync.openBranchOnGitHub",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /branch/ && viewItem =~ /github/",
+          "group": "2_github@1"
+        },
+        {
+          "command": "multiRepoSync.openChange",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^change/",
+          "group": "1_git@1"
+        },
+        {
+          "command": "multiRepoSync.stageChange",
+          "when": "view == multiRepoSync.repositories && viewItem == change",
+          "group": "1_git@2"
+        },
+        {
+          "command": "multiRepoSync.unstageChange",
+          "when": "view == multiRepoSync.repositories && viewItem == change.staged",
+          "group": "1_git@2"
+        },
+        {
+          "command": "multiRepoSync.discardChange",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^change/",
+          "group": "1_git@3"
+        },
+        {
+          "command": "multiRepoSync.copyCommitHash",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^commit/",
+          "group": "1_git@1"
+        },
+        {
+          "command": "multiRepoSync.copyCommitMessage",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^commit/",
+          "group": "1_git@2"
+        },
+        {
+          "command": "multiRepoSync.checkoutCommit",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^commit/",
+          "group": "1_git@3"
+        },
+        {
+          "command": "multiRepoSync.openCommitOnGitHub",
+          "when": "view == multiRepoSync.repositories && viewItem =~ /^commit/ && viewItem =~ /github/",
+          "group": "2_github@1"
+        },
+        {
+          "command": "multiRepoSync.openPullRequest",
+          "when": "view == multiRepoSync.repositories && viewItem == pullRequest",
+          "group": "1_git@1"
+        },
+        {
+          "command": "multiRepoSync.checkoutPullRequest",
+          "when": "view == multiRepoSync.repositories && viewItem == pullRequest",
+          "group": "1_git@2"
+        },
+        {
+          "command": "multiRepoSync.refreshPullRequests",
+          "when": "view == multiRepoSync.repositories && viewItem == pullRequestGroup",
+          "group": "1_git@1"
+        },
+        {
+          "command": "multiRepoSync.signInGitHub",
+          "when": "view == multiRepoSync.repositories && viewItem == auth",
+          "group": "1_git@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%config.title%",
+      "properties": {
+        "multiRepoSync.runOrder": {
+          "type": "string",
+          "enum": [
+            "perRepository",
+            "perOperation"
+          ],
+          "enumDescriptions": [
+            "%config.runOrder.perRepository%",
+            "%config.runOrder.perOperation%"
+          ],
+          "default": "perRepository",
+          "description": "%config.runOrder%"
+        },
+        "multiRepoSync.onError": {
+          "type": "string",
+          "enum": [
+            "stop",
+            "skipRepository",
+            "continue"
+          ],
+          "enumDescriptions": [
+            "%config.onError.stop%",
+            "%config.onError.skipRepository%",
+            "%config.onError.continue%"
+          ],
+          "default": "stop",
+          "description": "%config.onError%"
+        },
+        "multiRepoSync.timelineLimit": {
+          "type": "number",
+          "default": 50,
+          "minimum": 10,
+          "maximum": 500,
+          "description": "%config.timelineLimit%"
+        }
+      }
+    }
+  }
+}
